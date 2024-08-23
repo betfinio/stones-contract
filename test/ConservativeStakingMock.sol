@@ -5,7 +5,7 @@ import "../src/shared/staking/StakingInterface.sol";
 import "openzeppelin/access/AccessControl.sol";
 import "../src/shared/Token.sol";
 
-contract DynamicStakingMock is StakingInterface, AccessControl {
+contract ConservativeStakingMock is StakingInterface, AccessControl {
     bytes32 public constant TIMELOCK = keccak256("TIMELOCK");
     bytes32 public constant GAME = keccak256("GAME");
 
@@ -36,9 +36,7 @@ contract DynamicStakingMock is StakingInterface, AccessControl {
         return 0;
     }
 
-    function reserveFunds(uint256 amount) external override onlyRole(GAME) {
-        token.transfer(_msgSender(), amount);
-    }
+    function reserveFunds(uint256 amount) external override onlyRole(GAME) {}
 
     function addGame(address _game) external onlyRole(TIMELOCK) {
         _grantRole(GAME, _game);
