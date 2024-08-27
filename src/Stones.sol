@@ -20,6 +20,7 @@ import "chainlink/vrf/dev/VRFConsumerBaseV2Plus.sol";
  * ST03 - round not finished
  * ST04 - round has no bets
  * ST05 - transfer failed
+ * ST06 - transfer failed
  */
 
 contract Stones is
@@ -83,12 +84,12 @@ contract Stones is
         bytes32 _keyHash,
         address _admin
     ) VRFConsumerBaseV2Plus(_vrfCoordinator) {
-        require(_vrfCoordinator != address(0), "RO01");
+        // validation for vrf coordinator is not needed because it is already validated in the VRFConsumerBaseV2Plus contract
         vrfCoordinator = _vrfCoordinator;
         keyHash = _keyHash;
         subscriptionId = _subscriptionId;
         core = CoreInterface(_core);
-        require(core.isStaking(_staking), "RO06");
+        require(core.isStaking(_staking), "ST06");
         staking = StakingInterface(_staking);
         created = block.timestamp;
         _grantRole(DEFAULT_ADMIN_ROLE, _admin);
@@ -105,7 +106,7 @@ contract Stones is
             (uint256, uint256, uint256)
         );
         // check input data
-        require(_totalAmount > 0, "ST01");
+        // require(_totalAmount > 0, "ST01"); // not needed because it is checked in the Partner contract
         require(_totalAmount == _value * 1 ether, "ST01");
         require(_side >= 1 && _side <= 5, "ST01");
         require(_round == getCurrentRound(), "ST02");

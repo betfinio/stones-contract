@@ -85,6 +85,18 @@ contract StonesTest is Test {
     function testConstructor() public view {
         assertEq(address(stones.core()), address(core));
         assertEq(address(stones.staking()), address(staking));
+        assertEq(stones.getAddress(), address(stones));
+    }
+    function testConstructor_invalid() public {
+        vm.expectRevert(bytes("ST06"));
+        stones = new Stones(
+            555,
+            address(core),
+            address(111),
+            0x7a1BaC17Ccc5b313516C5E16fb24f7659aA5ebed,
+            0x4b09e658ed251bcafeebbc69400383d49f344ace09b9576fe248bb02c003fe9f,
+            address(this)
+        );
     }
     function testPlaceBet_fail() public {
         vm.startPrank(alice);
@@ -130,6 +142,9 @@ contract StonesTest is Test {
         assertEq(bet.getPlayer(), alice);
         assertEq(bet.getAmount(), betAmount * 1 ether);
         assertEq(bet.getSide(), side);
+        assertEq(bet.getCreated(), block.timestamp);
+        assertEq(bet.getStatus(), 1);
+        assertEq(bet.getResult(), 0);
     }
 
     function testPlaceBetInvalidAmount() public {
@@ -260,15 +275,16 @@ contract StonesTest is Test {
         uint256 amount,
         uint256 side,
         uint256 round
-    ) internal {
+    ) internal returns (address) {
         vm.startPrank(player);
         token.approve(address(core), amount * 1 ether);
-        partner.placeBet(
+        address bet = partner.placeBet(
             address(stones),
             amount * 1 ether,
             abi.encode(amount, side, round)
         );
         vm.stopPrank();
+        return bet;
     }
 
     function getRequest(uint256 requestId) internal {
@@ -305,7 +321,6 @@ contract StonesTest is Test {
         placeBet(alice, 1000, 3, round);
         placeBet(alice, 1000, 4, round);
         placeBet(alice, 1000, 5, round);
-
         assertEq(stones.getRoundBank(round), 5000 ether);
 
         vm.expectRevert(bytes("ST02")); // not finished
@@ -314,13 +329,13 @@ contract StonesTest is Test {
         getRequest(5);
         vm.warp(block.timestamp + 1 days);
         stones.roll(round);
-        vm.expectRevert(bytes("ST03")); // do not roill again
+        vm.expectRevert(bytes("ST03")); // do not roll again
         stones.roll(round);
     }
 
     event Transfer(address indexed from, address indexed to, uint256 value);
 
-    function testFullfill() public {
+    function testFullfill_sameUser() public {
         uint256 round = stones.getCurrentRound();
         placeBet(alice, 1000, 1, round);
         placeBet(alice, 1000, 2, round);
@@ -344,16 +359,17 @@ contract StonesTest is Test {
 
         vm.expectEmit(address(token));
         emit Transfer(address(stones), alice, 4820 ether);
+        assertEq(stones.roundStatus(round), 2);
         stones.executeResult(round);
         assertEq(stones.roundStatus(round), 3);
+        vm.expectRevert(bytes("ST03"));
+        stones.executeResult(round);
     }
-    function testFullfill() public {
+    function testFullfill_multipleUsers_diffStones() public {
         uint256 round = stones.getCurrentRound();
         placeBet(alice, 1000, 1, round);
-        placeBet(alice, 1000, 2, round);
-        placeBet(alice, 1000, 3, round);
-        placeBet(alice, 1000, 4, round);
-        placeBet(alice, 1000, 5, round);
+        address bet = placeBet(bob, 1000, 3, round);
+        placeBet(carol, 1000, 5, round);
         assertEq(stones.roundStatus(round), 0);
 
         vm.warp(block.timestamp + 1 days);
@@ -362,16 +378,73 @@ contract StonesTest is Test {
         assertEq(stones.roundStatus(round), 1);
 
         uint256[] memory result = new uint256[](1);
-        result[0] = uint256(1);
+        result[0] = uint256(1500); // winner is 3 (bob)
         vm.startPrank(stones.vrfCoordinator());
         stones.rawFulfillRandomWords(5, result);
 
-        assertEq(stones.roundWinnerSide(round), 1);
+        assertEq(stones.roundWinnerSide(round), 3);
         assertEq(stones.roundStatus(round), 2);
 
         vm.expectEmit(address(token));
-        emit Transfer(address(stones), alice, 4820 ether);
+        emit Transfer(address(stones), bob, 2892 ether);
         stones.executeResult(round);
         assertEq(stones.roundStatus(round), 3);
+        assertEq(StonesBet(bet).getStatus(), 2);
+        assertEq(StonesBet(bet).getResult(), 2892 ether);
+        (
+            address _player,
+            address _game,
+            uint256 _amount,
+            uint256 _result,
+            uint256 _status,
+            uint256 _created
+        ) = StonesBet(bet).getBetInfo();
+        assertEq(_player, bob);
+        assertEq(_game, address(stones));
+        assertEq(_amount, 1000 ether);
+        assertEq(_result, 2892 ether);
+        assertEq(_status, 2);
+        assertEq(_created, block.timestamp - 1 days);
+    }
+
+    function testFuzz_multipleResult(uint32 result) public {
+        uint256 round = stones.getCurrentRound();
+        placeBet(alice, 1000, 1, round);
+        placeBet(bob, 1000, 3, round);
+        placeBet(carol, 1000, 5, round);
+        assertEq(stones.roundStatus(round), 0);
+
+        vm.warp(block.timestamp + 1 days);
+        getRequest(5);
+        stones.roll(round);
+        assertEq(stones.roundStatus(round), 1);
+
+        uint256[] memory results = new uint256[](1);
+        results[0] = result;
+        vm.startPrank(stones.vrfCoordinator());
+        stones.rawFulfillRandomWords(5, results);
+        uint256[] memory probs = new uint256[](6);
+        probs[0] = 3000;
+        probs[1] = 1000;
+        probs[2] = 0;
+        probs[3] = 1000;
+        probs[4] = 0;
+        probs[5] = 1000;
+        assertEq(stones.roundWinnerSide(round), getWinSide(result, probs));
+        assertEq(stones.roundStatus(round), 2);
+    }
+
+    function getWinSide(uint256 value, uint256[] memory probs) public pure returns(uint256) {
+        uint winnerOffset = value % probs[0];
+        uint256 winnerSide = 0;
+        uint256 prev = 0;
+        for (uint256 i = 1; i <= 5; i++) {
+            if (winnerOffset < probs[i] + prev) {
+                winnerSide = i;
+                break;
+            }
+            prev += probs[i];
+        }
+        return winnerSide;
     }
 }
