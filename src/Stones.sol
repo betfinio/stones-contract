@@ -251,7 +251,7 @@ contract Stones is
     }
 
     function getFeeType() public pure override returns (uint256) {
-        return 1;
+        return 0;
     }
 
     function getStaking() public view override returns (address) {
