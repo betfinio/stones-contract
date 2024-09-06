@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import "openzeppelin/access/AccessControl.sol";
 import "./shared/staking/StakingInterface.sol";
 import "./StonesBet.sol";
 import "openzeppelin/security/ReentrancyGuard.sol";
@@ -23,17 +22,10 @@ import "chainlink/vrf/dev/VRFConsumerBaseV2Plus.sol";
  * ST06 - transfer failed
  */
 
-contract Stones is
-    VRFConsumerBaseV2Plus,
-    AccessControl,
-    GameInterface,
-    ReentrancyGuard
-{
+contract Stones is VRFConsumerBaseV2Plus, GameInterface, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     error RoundNotFinished(uint256 round);
-
-    bytes32 public constant TIMELOCK = keccak256("TIMELOCK");
 
     uint256 private immutable created;
     uint256 private immutable subscriptionId;
@@ -92,7 +84,6 @@ contract Stones is
         require(core.isStaking(_staking), "ST06");
         staking = StakingInterface(_staking);
         created = block.timestamp;
-        _grantRole(DEFAULT_ADMIN_ROLE, _admin);
     }
 
     function placeBet(
@@ -100,7 +91,7 @@ contract Stones is
         uint256 _totalAmount,
         bytes calldata _data
     ) external returns (address betAddress) {
-        require(address(core) == _msgSender(), "ST00");
+        require(address(core) == msg.sender, "ST00");
         (uint256 _value, uint256 _side, uint256 _round) = abi.decode(
             _data,
             (uint256, uint256, uint256)
@@ -224,6 +215,7 @@ contract Stones is
             bet.setResult(winAmount + bonusAmount);
             // set bet status
             bet.setStatus(2);
+            bet.renounceOwnership();
             // transfer win amount
             IERC20(address(staking.getToken())).safeTransfer(
                 bet.getPlayer(),
@@ -238,6 +230,7 @@ contract Stones is
             if (bet.getSide() == side) continue;
             // set bet status
             bet.setStatus(3);
+            bet.renounceOwnership();
         }
         emit PayoutDistributed(round);
     }
