@@ -20,6 +20,7 @@ import "chainlink/vrf/dev/VRFConsumerBaseV2Plus.sol";
  * ST04 - round has no bets
  * ST05 - transfer failed
  * ST06 - invalid constructor params
+ * ST07 - invalid balance
  */
 
 contract Stones is VRFConsumerBaseV2Plus, GameInterface, ReentrancyGuard {
@@ -204,6 +205,9 @@ contract Stones is VRFConsumerBaseV2Plus, GameInterface, ReentrancyGuard {
         uint256 bonusShares = roundBonusSharesBySide[round][side];
         // get bets count
         uint256 betsCount = roundBetsBySide[round][side].length;
+        address token = staking.getToken();
+        // should not happen
+        require(IERC20(token).balanceOf(address(this)) >= roundBank, "ST07");
         for (uint256 i = 0; i < betsCount; i++) {
             // get bet
             StonesBet bet = roundBetsBySide[round][side][i];
