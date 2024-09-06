@@ -19,7 +19,7 @@ import "chainlink/vrf/dev/VRFConsumerBaseV2Plus.sol";
  * ST03 - round not finished
  * ST04 - round has no bets
  * ST05 - transfer failed
- * ST06 - transfer failed
+ * ST06 - invalid constructor params
  */
 
 contract Stones is VRFConsumerBaseV2Plus, GameInterface, ReentrancyGuard {
@@ -76,6 +76,10 @@ contract Stones is VRFConsumerBaseV2Plus, GameInterface, ReentrancyGuard {
         bytes32 _keyHash,
         address _admin
     ) VRFConsumerBaseV2Plus(_vrfCoordinator) {
+        require(_core != address(0), "ST06");
+        require(_staking != address(0), "ST06");
+        require(_admin != address(0), "ST06");
+        require(_subscriptionId > 0, "ST06");
         // validation for vrf coordinator is not needed because it is already validated in the VRFConsumerBaseV2Plus contract
         vrfCoordinator = _vrfCoordinator;
         keyHash = _keyHash;

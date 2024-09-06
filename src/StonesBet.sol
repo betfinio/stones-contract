@@ -4,6 +4,11 @@ pragma solidity ^0.8.19;
 import "openzeppelin/access/Ownable.sol";
 import "./shared/BetInterface.sol";
 
+/**
+Errors in this contract
+* STB01 - invalid contrstuctor params
+*/
+
 contract StonesBet is Ownable, BetInterface {
     address private immutable player;
     address private immutable game;
@@ -26,6 +31,8 @@ contract StonesBet is Ownable, BetInterface {
         uint256 _amount,
         uint256 _side
     ) {
+        require(_player != address(0), "STB01");
+        require(_game != address(0), "STB02");
         created = block.timestamp;
         player = _player;
         game = _game;
