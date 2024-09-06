@@ -17,6 +17,9 @@ contract StonesBet is Ownable, BetInterface {
     uint256 private result;
     uint256 private side;
 
+    event StatusChanged(uint256 indexed status);
+    event ResultChanged(uint256 indexed result);
+
     constructor(
         address _player,
         address _game,
@@ -70,9 +73,11 @@ contract StonesBet is Ownable, BetInterface {
 
     function setStatus(uint256 _status) public onlyOwner {
         status = _status;
+        emit StatusChanged(status);
     }
 
     function setResult(uint256 _result) public onlyOwner {
         result = _result;
+        emit ResultChanged(result);
     }
 }
