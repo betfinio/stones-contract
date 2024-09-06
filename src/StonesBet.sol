@@ -20,7 +20,7 @@ contract StonesBet is Ownable, BetInterface {
     // 3 - lose
     uint256 private status;
     uint256 private result;
-    uint256 private side;
+    uint256 private immutable side;
 
     event StatusChanged(uint256 indexed status);
     event ResultChanged(uint256 indexed result);
