@@ -336,6 +336,7 @@ contract StonesTest is Test {
     event Transfer(address indexed from, address indexed to, uint256 value);
 
     function testFullfill_sameUser() public {
+        vm.warp(1 days);
         uint256 round = stones.getCurrentRound();
         placeBet(alice, 1000, 1, round);
         placeBet(alice, 1000, 2, round);
@@ -366,6 +367,7 @@ contract StonesTest is Test {
         stones.executeResult(round);
     }
     function testFullfill_multipleUsers_diffStones() public {
+        vm.warp(1 days);
         uint256 round = stones.getCurrentRound();
         placeBet(alice, 1000, 1, round);
         address bet = placeBet(bob, 1000, 3, round);
@@ -408,6 +410,7 @@ contract StonesTest is Test {
     }
 
     function testFuzz_multipleResult(uint32 result) public {
+        vm.warp(1 days);
         uint256 round = stones.getCurrentRound();
         placeBet(alice, 1000, 1, round);
         placeBet(bob, 1000, 3, round);
