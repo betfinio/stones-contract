@@ -434,7 +434,10 @@ contract StonesTest is Test {
         assertEq(stones.roundStatus(round), 2);
     }
 
-    function getWinSide(uint256 value, uint256[] memory probs) public pure returns(uint256) {
+    function getWinSide(
+        uint256 value,
+        uint256[] memory probs
+    ) public pure returns (uint256) {
         uint winnerOffset = value % probs[0];
         uint256 winnerSide = 0;
         uint256 prev = 0;
@@ -446,5 +449,38 @@ contract StonesTest is Test {
             prev += probs[i];
         }
         return winnerSide;
+    }
+
+    function test1000Bets() public {
+        vm.warp(1 days);
+        uint256 round = stones.getCurrentRound();
+        for (uint160 i = 1000; i < 2000; i++) {
+            vm.mockCall(
+                address(pass),
+                abi.encodeWithSelector(ERC721.balanceOf.selector, address(i)),
+                abi.encode(address(1))
+            );
+            token.transfer(address(i), 1000 ether);
+            vm.startPrank(address(i));
+            token.approve(address(core), 1000 ether);
+            vm.stopPrank();
+            placeBet(address(i), 1000, (i % 5) + 1, round);
+        }
+        assertEq(stones.getRoundBetsCount(round), 1000);
+        assertEq(stones.getRoundBank(round), 1000 * 1000 ether);
+        assertEq(stones.getRoundSideBank(round, 1), 200 * 1000 ether);
+        assertEq(stones.getRoundSideBank(round, 2), 200 * 1000 ether);
+        assertEq(stones.getRoundSideBank(round, 3), 200 * 1000 ether);
+        assertEq(stones.getRoundSideBank(round, 4), 200 * 1000 ether);
+        assertEq(stones.getRoundSideBank(round, 5), 200 * 1000 ether);
+
+        vm.warp(block.timestamp + 1 days);
+        getRequest(5);
+        stones.roll(round);
+
+        uint256[] memory results = new uint256[](1);
+        results[0] = 1;
+        vm.startPrank(stones.vrfCoordinator());
+        stones.rawFulfillRandomWords(5, results);
     }
 }

@@ -21,6 +21,8 @@ import "chainlink/vrf/dev/VRFConsumerBaseV2Plus.sol";
  * ST05 - transfer failed
  * ST06 - invalid constructor params
  * ST07 - invalid balance
+ * ST08 - max bets reached
+ * ST09 - unkonwn request
  */
 
 contract Stones is VRFConsumerBaseV2Plus, GameInterface, ReentrancyGuard {
@@ -35,6 +37,8 @@ contract Stones is VRFConsumerBaseV2Plus, GameInterface, ReentrancyGuard {
     uint32 private constant callbackGasLimit = 2_500_000;
     uint16 public constant requestConfirmations = 3;
     uint32 private constant numWords = 1;
+
+    uint256 private constant MAX_BET_SIZE = 1000;
 
     uint256 private constant bonusPart = 5_00;
 
@@ -106,6 +110,7 @@ contract Stones is VRFConsumerBaseV2Plus, GameInterface, ReentrancyGuard {
         require(_totalAmount == _value * 1 ether, "ST01");
         require(_side >= 1 && _side <= 5, "ST01");
         require(_round == getCurrentRound(), "ST02");
+        require(MAX_BET_SIZE >= roundBets[_round].length, "ST08");
         // create bet
         StonesBet bet = new StonesBet(
             _player,
@@ -167,6 +172,7 @@ contract Stones is VRFConsumerBaseV2Plus, GameInterface, ReentrancyGuard {
     ) internal override {
         // get round by request
         uint256 round = requestRounds[requestId];
+        require(round > 0, "ST09");
         // get winner offset
         uint256 winnerOffset = randomWords[0] % roundProbabilities[round][0];
         // calculate winner side by probabilities
@@ -207,7 +213,10 @@ contract Stones is VRFConsumerBaseV2Plus, GameInterface, ReentrancyGuard {
         uint256 betsCount = roundBetsBySide[round][side].length;
         address token = staking.getToken();
         // should not happen
-        require(IERC20(token).balanceOf(address(this)) >= roundBank, "ST07");
+        require(
+            IERC20(token).balanceOf(address(this)) >= roundBank + bonusBank,
+            "ST07"
+        );
         for (uint256 i = 0; i < betsCount; i++) {
             // get bet
             StonesBet bet = roundBetsBySide[round][side][i];
