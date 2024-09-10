@@ -223,7 +223,6 @@ contract Stones is VRFConsumerBaseV2Plus, GameInterface, ReentrancyGuard {
             bet.setResult(winAmount + bonusAmount);
             // set bet status
             bet.setStatus(2);
-            bet.renounceOwnership();
             // transfer win amount
             IERC20(address(staking.getToken())).safeTransfer(
                 bet.getPlayer(),
