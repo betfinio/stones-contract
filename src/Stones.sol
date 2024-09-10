@@ -21,7 +21,6 @@ import "chainlink/vrf/dev/VRFConsumerBaseV2Plus.sol";
  * ST05 - transfer failed
  * ST06 - invalid constructor params
  * ST07 - invalid balance
- * ST08 - max bets reached
  * ST09 - unkonwn request
  */
 
@@ -34,12 +33,8 @@ contract Stones is VRFConsumerBaseV2Plus, GameInterface, ReentrancyGuard {
     uint256 private immutable subscriptionId;
     address public immutable vrfCoordinator;
     bytes32 public immutable keyHash;
-    uint32 private constant callbackGasLimit = 2_500_000;
     uint16 public constant requestConfirmations = 3;
-    uint32 private constant numWords = 1;
-
-    uint256 private constant MAX_BET_SIZE = 1000;
-
+    address private immutable token;
     uint256 private constant bonusPart = 5_00;
 
     uint256 private constant interval = 10 minutes;
@@ -48,6 +43,8 @@ contract Stones is VRFConsumerBaseV2Plus, GameInterface, ReentrancyGuard {
     CoreInterface public immutable core;
 
     mapping(uint256 => StonesBet[]) public roundBets;
+    mapping(address => bool) public betSettled;
+    mapping(uint256 => uint256) public distributedInRound;
     mapping(uint256 => mapping(uint256 => StonesBet[])) public roundBetsBySide;
     mapping(uint256 => mapping(uint256 => uint256)) public roundBankBySide;
     mapping(uint256 => mapping(uint256 => uint256)) public roundProbabilities;
@@ -58,7 +55,6 @@ contract Stones is VRFConsumerBaseV2Plus, GameInterface, ReentrancyGuard {
     // 0 - not started
     // 1 - spinning
     // 2 - finished
-    // 3 - distributed
     mapping(uint256 => uint256) public roundStatus;
     mapping(uint256 => uint256) public roundRequests;
     mapping(uint256 => uint256) public requestRounds;
@@ -93,6 +89,7 @@ contract Stones is VRFConsumerBaseV2Plus, GameInterface, ReentrancyGuard {
         require(core.isStaking(_staking), "ST06");
         staking = StakingInterface(_staking);
         created = block.timestamp;
+        token = staking.getToken();
     }
 
     function placeBet(
@@ -110,7 +107,6 @@ contract Stones is VRFConsumerBaseV2Plus, GameInterface, ReentrancyGuard {
         require(_totalAmount == _value * 1 ether, "ST01");
         require(_side >= 1 && _side <= 5, "ST01");
         require(_round == getCurrentRound(), "ST02");
-        require(MAX_BET_SIZE >= roundBets[_round].length, "ST08");
         // create bet
         StonesBet bet = new StonesBet(
             _player,
@@ -153,8 +149,8 @@ contract Stones is VRFConsumerBaseV2Plus, GameInterface, ReentrancyGuard {
                     keyHash: keyHash,
                     subId: subscriptionId,
                     requestConfirmations: requestConfirmations,
-                    callbackGasLimit: callbackGasLimit,
-                    numWords: numWords,
+                    callbackGasLimit: 2_500_000,
+                    numWords: 1,
                     extraArgs: VRFV2PlusClient._argsToBytes(
                         VRFV2PlusClient.ExtraArgsV1({nativePayment: false})
                     )
@@ -192,63 +188,96 @@ contract Stones is VRFConsumerBaseV2Plus, GameInterface, ReentrancyGuard {
         emit WinnerCalculated(round, winnerSide);
     }
 
-    function executeResult(uint256 round) public {
-        require(roundStatus[round] == 2, "ST03");
-        roundStatus[round] = 3;
+    function prepareExecute(
+        uint256 round
+    )
+        public
+        view
+        returns (
+            uint256[] memory data
+        )
+    {
+        uint256 roundBank;
+        uint256 bonusBank;
+        uint256 sideBank;
+        uint256 bonusShares;
         // get winner side
         uint256 side = roundWinnerSide[round];
-        // get round's bank
-        uint256 roundBank = roundBankBySide[round][0];
-        // get side's bank
-        uint256 sideBank = roundBankBySide[round][side];
-        // calculate core fee
-        uint256 fee = (roundBank * core.fee()) / 100_00;
-        // calculate bonus bank
-        uint256 bonusBank = (roundBank * bonusPart) / 100_00;
-        // substract fee and bonus from bank
-        roundBank -= fee + bonusBank;
-        // get bonus share
-        uint256 bonusShares = roundBonusSharesBySide[round][side];
+        roundBank = roundBankBySide[round][0];
+        bonusBank = (roundBank * bonusPart) / 100_00;
+        sideBank = roundBankBySide[round][side];
+        roundBank -= (roundBank * core.fee()) / 100_00 + bonusBank;
+        bonusShares = roundBonusSharesBySide[round][side];
+        uint256[] memory roundData = new uint256[](4);
+        roundData[0] = roundBank;
+        roundData[1] = sideBank;
+        roundData[2] = bonusShares;
+        roundData[3] = bonusBank;
+        return roundData;
+    }
+
+    function executeResult(
+        uint256 round,
+        uint256 offset,
+        uint256 limit
+    ) public {
+        require(roundStatus[round] == 2, "ST03");
+        // get winner side
+        uint256 side = roundWinnerSide[round];
+        // get data
+        uint256[] memory roundData = prepareExecute(round);
         // get bets count
         uint256 betsCount = roundBetsBySide[round][side].length;
-        address token = staking.getToken();
         // should not happen
         require(
-            IERC20(token).balanceOf(address(this)) >= roundBank + bonusBank,
+            IERC20(token).balanceOf(address(this)) >=
+                roundData[0] + roundData[3] - distributedInRound[round],
             "ST07"
         );
-        for (uint256 i = 0; i < betsCount; i++) {
+        for (uint256 i = offset; i < limit + offset; i++) {
+            if (i >= betsCount) break;
             // get bet
             StonesBet bet = roundBetsBySide[round][side][i];
+            if (betSettled[address(bet)]) continue;
             // get bet's amount
             uint256 value = bet.getAmount();
-            // calculate win amount
-            uint256 winAmount = (value * roundBank) / sideBank;
             // calculate bonus share
-            uint256 bonusShare = (bet.getAmount() * (betsCount - i));
-            // calculate bonus amount
-            uint256 bonusAmount = (bonusShare * bonusBank) / bonusShares;
+            uint256 bonusShare = (value * (betsCount - i));
+            // calculate result
+            uint256 result = ((value * roundData[0]) / roundData[1]) +
+                ((bonusShare * roundData[3]) / roundData[2]);
             // set bet result
-            bet.setResult(winAmount + bonusAmount);
+            bet.setResult(result);
             // set bet status
             bet.setStatus(2);
             // transfer win amount
-            IERC20(address(staking.getToken())).safeTransfer(
-                bet.getPlayer(),
-                winAmount + bonusAmount
-            );
+            IERC20(token).safeTransfer(bet.getPlayer(), result);
+            betSettled[address(bet)] = true;
+            distributedInRound[round] += result;
         }
+    }
+
+    function settleLostBets(
+        uint256 round,
+        uint256 offset,
+        uint256 limit
+    ) public {
+        require(roundStatus[round] == 2, "ST03");
+        // get winner side
+        uint256 side = roundWinnerSide[round];
         // get all other bets
         uint256 allBetsCount = roundBets[round].length;
-        for (uint256 i = 0; i < allBetsCount; i++) {
+        for (uint256 i = offset; i < limit + offset; i++) {
+            if (i >= allBetsCount) break;
             StonesBet bet = roundBets[round][i];
+            if (betSettled[address(bet)]) continue;
+
             // skip if winner side
             if (bet.getSide() == side) continue;
             // set bet status
             bet.setStatus(3);
-            bet.renounceOwnership();
+            betSettled[address(bet)] = true;
         }
-        emit PayoutDistributed(round);
     }
 
     function getAddress() public view override returns (address) {

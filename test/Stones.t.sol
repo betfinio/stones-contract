@@ -361,10 +361,8 @@ contract StonesTest is Test {
         vm.expectEmit(address(token));
         emit Transfer(address(stones), alice, 4820 ether);
         assertEq(stones.roundStatus(round), 2);
-        stones.executeResult(round);
-        assertEq(stones.roundStatus(round), 3);
-        vm.expectRevert(bytes("ST03"));
-        stones.executeResult(round);
+        stones.executeResult(round, 0, 100);
+        stones.settleLostBets(round, 0, 100);
     }
     function testFullfill_multipleUsers_diffStones() public {
         vm.warp(1 days);
@@ -389,8 +387,9 @@ contract StonesTest is Test {
 
         vm.expectEmit(address(token));
         emit Transfer(address(stones), bob, 2892 ether);
-        stones.executeResult(round);
-        assertEq(stones.roundStatus(round), 3);
+        stones.executeResult(round, 0, 100);
+        stones.settleLostBets(round, 0, 100);
+        assertEq(stones.roundStatus(round), 2);
         assertEq(StonesBet(bet).getStatus(), 2);
         assertEq(StonesBet(bet).getResult(), 2892 ether);
         (
@@ -485,5 +484,17 @@ contract StonesTest is Test {
         results[0] = 1;
         vm.startPrank(stones.vrfCoordinator());
         stones.rawFulfillRandomWords(5, results);
+
+        stones.executeResult(round, 0, 200);
+        stones.executeResult(round, 200, 400);
+        stones.executeResult(round, 400, 600);
+        stones.executeResult(round, 600, 800);
+        stones.executeResult(round, 800, 1000);
+
+        assertApproxEqAbs(
+            stones.distributedInRound(round),
+            1000 * 1000 ether - 36000 ether,
+            200
+        );
     }
 }
