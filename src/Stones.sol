@@ -190,13 +190,7 @@ contract Stones is VRFConsumerBaseV2Plus, GameInterface, ReentrancyGuard {
 
     function prepareExecute(
         uint256 round
-    )
-        public
-        view
-        returns (
-            uint256[] memory data
-        )
-    {
+    ) public view returns (uint256[] memory data) {
         uint256 roundBank;
         uint256 bonusBank;
         uint256 sideBank;
@@ -220,7 +214,7 @@ contract Stones is VRFConsumerBaseV2Plus, GameInterface, ReentrancyGuard {
         uint256 round,
         uint256 offset,
         uint256 limit
-    ) public {
+    ) public nonReentrant {
         require(roundStatus[round] == 2, "ST03");
         // get winner side
         uint256 side = roundWinnerSide[round];
@@ -261,7 +255,7 @@ contract Stones is VRFConsumerBaseV2Plus, GameInterface, ReentrancyGuard {
         uint256 round,
         uint256 offset,
         uint256 limit
-    ) public {
+    ) public nonReentrant {
         require(roundStatus[round] == 2, "ST03");
         // get winner side
         uint256 side = roundWinnerSide[round];
