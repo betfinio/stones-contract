@@ -61,7 +61,7 @@ contract Stones is VRFConsumerBaseV2Plus, GameInterface, ReentrancyGuard {
 
     event RoundStart(uint256 indexed round, uint256 indexed timestamp);
     event PayoutDistributed(uint256 indexed round);
-
+    event BetCreated(address indexed bet);
     event RequestedCalculation(
         uint256 indexed round,
         uint256 indexed requestId,
@@ -133,6 +133,7 @@ contract Stones is VRFConsumerBaseV2Plus, GameInterface, ReentrancyGuard {
         if (getRoundBetsCount(_round) == 1) {
             emit RoundStart(_round, block.timestamp);
         }
+        emit BetCreated(address(bet));
         return address(bet);
     }
 
