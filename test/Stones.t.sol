@@ -145,6 +145,7 @@ contract StonesTest is Test {
         assertEq(bet.getCreated(), block.timestamp);
         assertEq(bet.getStatus(), 1);
         assertEq(bet.getResult(), 0);
+        assertEq(bet.getOrder(), 1);
     }
 
     function testPlaceBetInvalidAmount() public {
@@ -190,27 +191,30 @@ contract StonesTest is Test {
 
         vm.startPrank(alice);
         token.approve(address(core), 1000 ether);
-        partner.placeBet(
+        address bet = partner.placeBet(
             address(stones),
             1000 ether,
             abi.encode(1000, 2, round)
         );
+        assertEq(StonesBet(bet).getOrder(), 1);
         vm.stopPrank();
         vm.startPrank(bob);
         token.approve(address(core), 1000 ether);
-        partner.placeBet(
+        bet = partner.placeBet(
             address(stones),
             1000 ether,
             abi.encode(1000, 2, round)
         );
+        assertEq(StonesBet(bet).getOrder(), 2);
         vm.stopPrank();
         vm.startPrank(carol);
         token.approve(address(core), 1000 ether);
-        partner.placeBet(
+        bet = partner.placeBet(
             address(stones),
             1000 ether,
             abi.encode(1000, 2, round)
         );
+        assertEq(StonesBet(bet).getOrder(), 3);
         vm.stopPrank();
 
         assertEq(stones.getRoundBetsCount(round), 3);
@@ -466,7 +470,7 @@ contract StonesTest is Test {
             vm.startPrank(address(i));
             token.approve(address(core), 1000 ether);
             vm.stopPrank();
-            placeBet(address(i), 1000, (i % 5) + 1, round);
+            address bet = placeBet(address(i), 1000, (i % 5) + 1, round);
         }
         assertEq(stones.getRoundBetsCount(round), 1000);
         assertEq(stones.getRoundBank(round), 1000 * 1000 ether);

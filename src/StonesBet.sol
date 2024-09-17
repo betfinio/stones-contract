@@ -21,6 +21,7 @@ contract StonesBet is Ownable, BetInterface {
     uint256 private status;
     uint256 private result;
     uint256 private immutable side;
+    uint256 private immutable order;
 
     event StatusChanged(uint256 indexed status);
     event ResultChanged(uint256 indexed result);
@@ -29,7 +30,8 @@ contract StonesBet is Ownable, BetInterface {
         address _player,
         address _game,
         uint256 _amount,
-        uint256 _side
+        uint256 _side,
+        uint256 _order
     ) {
         require(_player != address(0), "STB01");
         require(_game != address(0), "STB02");
@@ -39,6 +41,7 @@ contract StonesBet is Ownable, BetInterface {
         totalAmount = _amount;
         status = 1;
         side = _side;
+        order = _order;
     }
 
     function getPlayer() external view override returns (address) {
@@ -63,6 +66,10 @@ contract StonesBet is Ownable, BetInterface {
 
     function getResult() external view returns (uint256) {
         return result;
+    }
+
+    function getOrder() external view returns (uint256) {
+        return order;
     }
 
     function getSide() external view returns (uint256) {

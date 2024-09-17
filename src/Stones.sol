@@ -112,7 +112,8 @@ contract Stones is VRFConsumerBaseV2Plus, GameInterface, ReentrancyGuard {
             _player,
             address(this),
             _totalAmount,
-            _side
+            _side,
+            roundBetsBySide[_round][_side].length + 1
         );
         // add bet to round
         roundBets[_round].push(bet);
