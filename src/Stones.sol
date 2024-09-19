@@ -60,7 +60,6 @@ contract Stones is VRFConsumerBaseV2Plus, GameInterface, ReentrancyGuard {
     mapping(uint256 => uint256) public requestRounds;
 
     event RoundStart(uint256 indexed round, uint256 indexed timestamp);
-    event PayoutDistributed(uint256 indexed round);
     event BetCreated(address indexed bet, uint256 indexed round);
     event RequestedCalculation(
         uint256 indexed round,
