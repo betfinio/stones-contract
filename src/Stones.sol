@@ -298,6 +298,13 @@ contract Stones is VRFConsumerBaseV2Plus, GameInterface, ReentrancyGuard {
     function getRoundBetsCount(uint256 _round) public view returns (uint256) {
         return roundBets[_round].length;
     }
+    function getRoundBetsCountBySide(
+        uint256 _round,
+        uint256 _side
+    ) public view returns (uint256) {
+        return roundBetsBySide[_round][_side].length;
+    }
+
     function getRoundBank(uint256 _round) public view returns (uint256) {
         return roundBankBySide[_round][0];
     }
