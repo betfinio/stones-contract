@@ -37,7 +37,7 @@ contract Stones is VRFConsumerBaseV2Plus, GameInterface, ReentrancyGuard {
     address private immutable token;
     uint256 private constant bonusPart = 5_00;
 
-    uint256 private constant interval = 10 minutes;
+    uint256 private constant interval = 5 minutes;
 
     StakingInterface public immutable staking;
     CoreInterface public immutable core;
@@ -73,12 +73,10 @@ contract Stones is VRFConsumerBaseV2Plus, GameInterface, ReentrancyGuard {
         address _core,
         address _staking,
         address _vrfCoordinator,
-        bytes32 _keyHash,
-        address _admin
+        bytes32 _keyHash
     ) VRFConsumerBaseV2Plus(_vrfCoordinator) {
         require(_core != address(0), "ST06");
         require(_staking != address(0), "ST06");
-        require(_admin != address(0), "ST06");
         require(_subscriptionId > 0, "ST06");
         // validation for vrf coordinator is not needed because it is already validated in the VRFConsumerBaseV2Plus contract
         vrfCoordinator = _vrfCoordinator;
@@ -298,6 +296,7 @@ contract Stones is VRFConsumerBaseV2Plus, GameInterface, ReentrancyGuard {
     function getRoundBetsCount(uint256 _round) public view returns (uint256) {
         return roundBets[_round].length;
     }
+    
     function getRoundBetsCountBySide(
         uint256 _round,
         uint256 _side

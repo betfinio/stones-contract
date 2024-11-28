@@ -8,6 +8,7 @@ import "../src/Stones.sol";
 import "../src/shared/Token.sol";
 import "../src/shared/Core.sol";
 import "./ConservativeStakingMock.sol";
+
 contract StonesTest is Test {
     Stones public stones;
     Core public core;
@@ -49,8 +50,7 @@ contract StonesTest is Test {
             address(core),
             address(staking),
             0x7a1BaC17Ccc5b313516C5E16fb24f7659aA5ebed,
-            0x4b09e658ed251bcafeebbc69400383d49f344ace09b9576fe248bb02c003fe9f,
-            address(this)
+            0x4b09e658ed251bcafeebbc69400383d49f344ace09b9576fe248bb02c003fe9f
         );
         core.grantRole(core.TIMELOCK(), address(this));
         core.addGame(address(stones));
@@ -87,6 +87,7 @@ contract StonesTest is Test {
         assertEq(address(stones.staking()), address(staking));
         assertEq(stones.getAddress(), address(stones));
     }
+
     function testConstructor_invalid() public {
         vm.expectRevert(bytes("ST06"));
         stones = new Stones(
@@ -94,10 +95,10 @@ contract StonesTest is Test {
             address(core),
             address(111),
             0x7a1BaC17Ccc5b313516C5E16fb24f7659aA5ebed,
-            0x4b09e658ed251bcafeebbc69400383d49f344ace09b9576fe248bb02c003fe9f,
-            address(this)
+            0x4b09e658ed251bcafeebbc69400383d49f344ace09b9576fe248bb02c003fe9f
         );
     }
+
     function testPlaceBet_fail() public {
         vm.startPrank(alice);
         token.approve(address(core), 1000 ether);
@@ -119,6 +120,7 @@ contract StonesTest is Test {
         data = abi.encode(1000, 1, 345345);
         partner.placeBet(address(stones), 1000 ether, data);
     }
+
     function testPlaceBetValid() public {
         // Approve some tokens for core
         vm.startPrank(alice);
@@ -368,6 +370,7 @@ contract StonesTest is Test {
         stones.executeResult(round, 0, 100);
         stones.settleLostBets(round, 0, 100);
     }
+
     function testFullfill_multipleUsers_diffStones() public {
         vm.warp(1 days);
         uint256 round = stones.getCurrentRound();
